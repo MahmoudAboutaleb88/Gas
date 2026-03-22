@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حاسبة الغاز</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* تقليل هوامش الصفحة */
+body{
+  background:#f0f0ec;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:.25rem;                 /* كان 1rem */
+  font-family:system-ui,"Segoe UI",Tahoma,"Noto Naskh Arabic","Cairo",Arial,sans-serif
+}
+
+/* توسيع العرض وتقليل الحشو الداخلي */
+.wrap{
+  display:flex;flex-direction:column;align-items:center;
+  gap:.75rem;                      /* كان 1.2rem */
+  padding:.9rem .7rem;             /* كان 1.5rem 1rem */
+  background:#fff;border-radius:14px;
+  max-width:380px;                 /* كان 420px */
+  width:100%;
+  box-shadow:0 2px 14px rgba(0,0,0,0.07)
+}
+
+/* تقليل ارتفاع الكانفس المرئي لتقليل الاسكرول */
+canvas{display:block;width:320px;height:320px;flex-shrink:0} /* كان 340x340 */
+
+.metrics{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;                         /* كان 10px */
+  width:100%
+}
+
+/* بطاقات الميتريكس مضغوطة */
+.mc{background:#f5f5f0;border-radius:8px;padding:.55rem .7rem;text-align:center}
+.mc-l{font-size:10px;color:#888;margin-bottom:2px}
+.mc-v{font-size:18px;font-weight:600;color:#1a1a1a}
+.mc-u{font-size:10px;color:#888}
+
+/* الجريد السفلي مضغوط */
+.grid2{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;                         /* كان 10px */
+  width:100%
+}
+.card{background:#f5f5f0;border-radius:8px;padding:.65rem .75rem;text-align:center}
+.card-l{font-size:09px;color:#888;margin-bottom:2px}
+.card-v{font-size:16px;font-weight:600;color:#1a1a1a}
+.card-u{font-size:10px;color:#888}
+.card.green .card-v{color:#1a8f60}
+.card.red   .card-v{color:#c0392b}
+
+/* شريط الامتلاء أقصر */
+.fill-bg{width:100%;background:#eee;border-radius:99px;height:6px;overflow:hidden} /* كان 8px */
+.fill-fg{height:100%;border-radius:99px;transition:width .12s,background .12s}
+
+/* شريط الحالة مضغوط */
+.sbar{width:100%;border-radius:8px;padding:.5rem .7rem;display:flex;align-items:center;gap:8px;background:#f5f5f0}
+.sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.stxt{font-size:12px;color:#1a1a1a}
+
+/* كنترولز مضغوطة */
+.ctrl-wrap{width:100%;display:flex;flex-direction:column;gap:6px}
+.slrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.slrow label{font-size:12px;color:#666;min-width:42px}
+.slrow input[type=range]{flex:1;accent-color:#26215C}
+.slrow .val{font-size:12px;font-weight:500;color:#1a1a1a;min-width:64px}
+
+/* أزرار أصغر */
+.btnrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.btnrow span{font-size:11px;color:#888}
+.sb{padding:4px 10px;font-size:12px;font-weight:600;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;min-width:36px;text-align:center;user-select:none}
+.sb:active{transform:scale(0.96);background:#f5f5f0}
+.sb.danger{color:#c0392b}
+
+/* مدخلات رقمية مضغوطة */
+.input{
+  flex:1;
+  padding:.35rem .55rem;
+  border:1px solid #ddd;border-radius:8px;
+  background:#fff;color:#1a1a1a;font-size:12px
+}
+.input.sm{ flex:0 0 110px } /* كان 120px */
+
+@media(prefers-color-scheme:dark){
+  body{background:#1a1a18}
+  .wrap{background:#242422;box-shadow:0 2px 16px rgba(0,0,0,0.4)}
+  .mc,.card,.sbar{background:#2e2e2c}
+  .mc-v,.card-v,.stxt,.slrow .val{color:#e0e0d8}
+  .mc-l,.card-l,.mc-u,.card-u,.slrow label,.btnrow span{color:#777}
+  .fill-bg{background:#3a3a38}
+  .sb{background:#2e2e2c;border-color:#444;color:#e0e0d8}
+  .sb:active{background:#3a3a38}
+  .card.green .card-v{color:#2db87a}
+  .card.red   .card-v{color:#e05050}
+  .input{ background:#2e2e2c; border-color:#444; color:#e0e0d8; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="g" width="680" height="680" role="img" aria-label="عداد ضغط الغاز الطبيعي المضغوط من صفر إلى ستة آلاف PSI"></canvas>
+
+  <div class="metrics">
+    <div class="mc"><div class="mc-l">psi</div><div class="mc-v" id="vpsi">0</div></div>
+    <div class="mc"><div class="mc-l">bar</div><div class="mc-v" id="vbar">0</div></div>
+    <div class="mc"><div class="mc-l">امتلاء</div><div class="mc-v" id="vpct">0<span class="mc-u">%</span></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card green">
+      <div class="card-l">الغاز بالأسطوانة</div>
+      <div class="card-v" id="vmeters">0.00 <span class="card-u">م³</span></div>
+    </div>
+    <div class="card green">
+      <div class="card-l">قيمة الغاز بالأسطوانة</div>
+      <div class="card-v" id="vmoney">0 <span class="card-u">جنيه</span></div>
+    </div>
+    <div class="card red">
+      <div class="card-l">ناقص للامتلاء</div>
+      <div class="card-v" id="vneed_m">15.00 <span class="card-u">م³</span></div>
+    </div>
+    <div class="card red">
+      <div class="card-l">محتاج تدفع</div>
+      <div class="card-v" id="vneed_p">195 <span class="card-u">جنيه</span></div>
+    </div>
+  </div>
+
+  <div class="fill-bg"><div class="fill-fg" id="ffg" style="width:0%;background:#c0392b"></div></div>
+
+  <div class="sbar">
+    <div class="sdot" id="sdot" style="background:#c0392b"></div>
+    <span class="stxt" id="stxt">الضغط حرج</span>
+  </div>
+
+  <div class="ctrl-wrap">
+    <!-- سلايدر psi -->
+    <div class="slrow">
+      <label for="sl">الضغط</label>
+      <input type="range" id="sl" min="0" max="6000" step="1" value="0" oninput="draw(+this.value)" aria-valuemin="0" aria-valuemax="6000" aria-label="ضغط الخزان بالـ psi">
+      <span class="val" id="slv">0 psi</span>
+    </div>
+
+    <!-- إدخال psi يدوي -->
+    <div class="slrow">
+      <label for="psiInput">psi</label>
+      <input type="number" id="psiInput" class="input" min="0" max="6000" step="1" placeholder="مثال: 1200">
+      <button class="sb" id="applyPsiBtn">تطبيق</button>
+      <span class="val" id="psiInputHint"></span>
+    </div>
+
+    <!-- قيمة الامتلاء الكاملة بالجنيه (قابلة للتعديل) -->
+    <div class="slrow">
+      <label for="fullPriceInput">الامتلاء</label>
+      <input type="number" id="fullPriceInput" class="input sm" min="0" step="1" value="195" aria-label="قيمة الامتلاء الكامل بالجنيه">
+      <button class="sb" id="applyFullPriceBtn">تطبيق</button>
+      <span class="val" id="fullPriceHint">جنيه</span>
+    </div>
+
+    <div class="btnrow">
+      <span>خطوة:</span>
+      <button class="sb" onclick="step(-1)">−1</button>
+      <button class="sb" onclick="step(1)">+1</button>
+      <button class="sb" onclick="step(-10)">−10</button>
+      <button class="sb" onclick="step(10)">+10</button>
+      <button class="sb" onclick="step(-100)">−100</button>
+      <button class="sb" onclick="step(100)">+100</button>
+      <button class="sb danger" onclick="draw(0)">↺</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* === نفس المنطق مع واجهة مضغوطة === */
+const cv=document.getElementById('g'),ctx=cv.getContext('2d');
+const S=680,cx=S/2,cy=S/2,R=290;
+const D=Math.PI/180;
+const MAX_PSI=6000,MAX_BAR=414,FULL_PSI=3000;
+// سعة الخزان (ثابتة) وقيمة الامتلاء (قابلة للتغيير)
+const FULL_M3=15;
+let   FULL_PRICE=195;
+
+const pricePerM3 = () => FULL_PRICE / FULL_M3;
+const A0=120*D,SWEEP=300*D;
+
+function clamp(v){return Math.min(MAX_PSI,Math.max(0,v));}
+function tAngle(psi){return A0+(clamp(psi)/MAX_PSI)*SWEEP;}
+function step(n){draw(clamp(+document.getElementById('sl').value+n));}
+
+function draw(rawPsi){
+  const psi=clamp(rawPsi);
+  document.getElementById('sl').value=psi;
+  ctx.clearRect(0,0,S,S);
+  const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+
+  // إطار خارجي
+  ctx.beginPath();ctx.arc(cx,cy,R+30,0,Math.PI*2);
+  ctx.fillStyle=dk?'#111':'#2a2a2a';ctx.fill();
+
+  ctx.beginPath();ctx.arc(cx,cy,R+22,0,Math.PI*2);
+  ctx.fillStyle=dk?'#777':'#aaa';ctx.fill();
+  ctx.beginPath();ctx.arc(cx-6,cy-6,R+20,Math.PI*1.05,Math.PI*1.75);
+  ctx.strokeStyle=dk?'#aaa':'#ddd';ctx.lineWidth=8;ctx.stroke();
+
+  ctx.beginPath();ctx.arc(cx,cy,R+11,0,Math.PI*2);
+  ctx.fillStyle='#7a5530';ctx.fill();
+  for(let i=0;i<80;i++){
+    const a2=i*4.5*D,rr=R+13;
+    ctx.beginPath();ctx.arc(cx+rr*Math.cos(a2),cy+rr*Math.sin(a2),i%4===0?2.8:1.4,0,Math.PI*2);
+    ctx.fillStyle=i%3===0?'#9a6535':'#4a2a0a';ctx.fill();
+  }
+
+  ctx.beginPath();ctx.arc(cx,cy,R+2,0,Math.PI*2);
+  ctx.strokeStyle=dk?'#444':'#bbb';ctx.lineWidth=3;ctx.stroke();
+
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.fillStyle=dk?'#ccc':'#f4f4ee';ctx.fill();
+  ctx.strokeStyle=dk?'#aaa':'#e0e0e0';ctx.lineWidth=5;ctx.stroke();
+
+  // تدريج bar
+  for(let b=0;b<=MAX_BAR;b+=5){
+    const a2=tAngle(b*(MAX_PSI/MAX_BAR));
+    const isMaj=b%100===0,isMid=b%50===0&&!isMaj;
+    const r1=R-2,r2=isMaj?R-26:isMid?R-18:R-11;
+    ctx.beginPath();ctx.moveTo(cx+r1*Math.cos(a2),cy+r1*Math.sin(a2));
+    ctx.lineTo(cx+r2*Math.cos(a2),cy+r2*Math.sin(a2));
+    ctx.strokeStyle=dk?'#666':'#888';ctx.lineWidth=isMaj?2.5:isMid?1.5:0.8;ctx.lineCap='round';ctx.stroke();
+  }
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='bold 22px sans-serif';ctx.fillStyle=dk?'#777':'#666';
+  [0,100,200,300,400].forEach(b=>{
+    const a2=tAngle(b*(MAX_PSI/MAX_BAR)),lr=R-44;
+    ctx.fillText(b,cx+lr*Math.cos(a2),cy+lr*Math.sin(a2));
+  });
+
+  // تدريج psi
+  for(let v=0;v<=MAX_PSI;v+=100){
+    const isMaj=v%1000===0,isMid=v%500===0&&!isMaj;
+    const a2=tAngle(v),r1=R-30,r2=isMaj?R-58:isMid?R-48:R-40;
+    ctx.beginPath();ctx.moveTo(cx+r1*Math.cos(a2),cy+r1*Math.sin(a2));
+    ctx.lineTo(cx+r2*Math.cos(a2),cy+r2*Math.sin(a2));
+    ctx.strokeStyle='#cc2222';ctx.lineWidth=isMaj?2.5:isMid?1.5:0.8;ctx.lineCap='round';ctx.stroke();
+  }
+  ctx.font='bold 26px sans-serif';ctx.fillStyle='#cc2222';
+  [0,1000,2000,3000,4000,5000,6000].forEach(v=>{
+    const a2=tAngle(v),lr=R-82;
+    ctx.fillText(v,cx+lr*Math.cos(a2),cy+lr*Math.sin(a2));
+  });
+
+  // نصوص وسط العدّاد
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='bold 26px sans-serif';ctx.fillStyle='#cc2222';   /* كان 28px */
+  ctx.fillText('psi',cx,cy+76);
+  ctx.font='20px sans-serif';ctx.fillStyle=dk?'#888':'#555'; /* كان 22px */
+  ctx.fillText('bar',cx,cy+104);
+  ctx.font='bold 16px sans-serif';ctx.fillStyle=dk?'#777':'#444'; /* كان 18px */
+  ctx.fillText('EN 837-1',cx,cy+12);
+
+  const bw=110,bh=28,by=cy+146;     /* أصغر شوية */
+  ctx.strokeStyle=dk?'#555':'#333';ctx.lineWidth=2;
+  ctx.strokeRect(cx-bw/2,by,bw,bh);
+  ctx.font='bold 16px sans-serif';ctx.fillStyle=dk?'#555':'#333';
+  ctx.fillText('CNGauge',cx,by+14);
+
+  ctx.font='12px sans-serif';ctx.fillStyle=dk?'#666':'#555';
+  ctx.textAlign='left'; ctx.fillText('ECE-',cx-124,cy+136);
+  ctx.fillText('R110',cx-124,cy+150);
+  ctx.textAlign='right';ctx.fillText('CL 1.6',cx+124,cy+144);
+  ctx.textAlign='center';
+
+  [[-36,142],[36,142]].forEach(([dx,dy])=>{
+    const sx=cx+dx,sy=cy+dy;
+    ctx.beginPath();ctx.arc(sx,sy,11,0,Math.PI*2);
+    ctx.fillStyle=dk?'#999':'#c8c8c8';ctx.fill();
+    ctx.strokeStyle=dk?'#555':'#888';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.strokeStyle=dk?'#555':'#777';ctx.lineWidth=2.1;
+    ctx.beginPath();ctx.moveTo(sx-6,sy);ctx.lineTo(sx+6,sy);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(sx,sy-6);ctx.lineTo(sx,sy+6);ctx.stroke();
+  });
+
+  // المؤشر
+  const ta=tAngle(psi);
+  const tipX=cx+(R-35)*Math.cos(ta),tipY=cy+(R-35)*Math.sin(ta);
+  const baseX=cx+50*Math.cos(ta+Math.PI),baseY=cy+50*Math.sin(ta+Math.PI);
+  const px=Math.cos(ta+Math.PI/2),py=Math.sin(ta+Math.PI/2);
+  ctx.beginPath();
+  ctx.moveTo(tipX,tipY);
+  ctx.lineTo(baseX+6*px,baseY+6*py);
+  ctx.lineTo(baseX-6*px,baseY-6*py);
+  ctx.closePath();
+  ctx.fillStyle=dk?'#111':'#0a0a0a';ctx.fill();
+
+  // مركز العدّاد
+  ctx.beginPath();ctx.arc(cx,cy,56,0,Math.PI*2);           /* كان 58 */
+  ctx.fillStyle=dk?'#1a1a18':'#ececec';ctx.fill();
+  ctx.strokeStyle=dk?'#444':'#bbb';ctx.lineWidth=2;ctx.stroke();
+  const gap=65*D;
+  ctx.beginPath();ctx.arc(cx,cy,48,Math.PI/2+gap/2,Math.PI/2-gap/2+Math.PI*2); /* كان 50 */
+  ctx.strokeStyle=dk?'#111':'#0d0d0d';ctx.lineWidth=20;    /* كان 22 */
+  ctx.lineCap='butt';ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,34,0,Math.PI*2);           /* كان 36 */
+  ctx.fillStyle=dk?'#1a1a18':'#f0f0e8';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);
+  ctx.fillStyle=dk?'#888':'#777';ctx.fill();
+
+  // لمعان
+  ctx.beginPath();ctx.arc(cx-42,cy-52,R*0.52,0,Math.PI*0.55);
+  ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=24; /* كان 26 */
+  ctx.lineCap='round';ctx.stroke();
+
+  // الحسابات المالية (سعر متر ديناميكي)
+  const meters     = psi * (FULL_M3 / FULL_PSI);
+  const priceM3    = pricePerM3();
+  const money      = meters * priceM3;
+  const needMeters = Math.max(0, FULL_M3 - meters);
+  const needMoney  = needMeters * priceM3;
+
+  const psiR=Math.round(psi),barR=Math.round(psi*(MAX_BAR/MAX_PSI));
+  const pctR=Math.min(100,Math.round((psi/FULL_PSI)*100));
+
+  document.getElementById('vpsi').textContent=psiR.toLocaleString('ar-EG');
+  document.getElementById('vbar').textContent=barR;
+  document.getElementById('vpct').innerHTML=pctR+'<span class="mc-u">%</span>';
+  document.getElementById('slv').textContent=psiR.toLocaleString('ar-EG')+' psi';
+  document.getElementById('vmeters').innerHTML=meters.toFixed(2)+' <span class="card-u">م³</span>';
+  document.getElementById('vmoney').innerHTML=Math.round(money).toLocaleString('ar-EG')+' <span class="card-u">جنيه</span>';
+  document.getElementById('vneed_m').innerHTML=needMeters.toFixed(2)+' <span class="card-u">م³</span>';
+  document.getElementById('vneed_p').innerHTML=Math.round(needMoney).toLocaleString('ar-EG')+' <span class="card-u">جنيه</span>';
+
+  const col=psi<500?'#c0392b':psi<1000?'#e67e22':psi<FULL_PSI?'#e6b800':'#1a8f60';
+  const msg=psi<500?'الضغط حرج':psi<1000?'الضغط منخفض':psi<FULL_PSI?'الضغط متوسط':'الخزان ممتلئ';
+  document.getElementById('ffg').style.cssText=`width:${pctR}%;background:${col}`;
+  document.getElementById('sdot').style.background=col;
+  document.getElementById('stxt').textContent=msg;
+
+  // مزامنة صناديق الإدخال
+  const psiInputEl = document.getElementById('psiInput');
+  if (psiInputEl && psiInputEl !== document.activeElement) psiInputEl.value = psi;
+  const fpi = document.getElementById('fullPriceInput');
+  if (fpi && fpi !== document.activeElement) fpi.value = Math.round(FULL_PRICE);
+}
+
+draw(0);
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>draw(+document.getElementById('sl').value));
+
+/* إدخال psi */
+const psiInput   = document.getElementById('psiInput');
+const applyPsiBtn= document.getElementById('applyPsiBtn');
+const psiHint    = document.getElementById('psiInputHint');
+const slider     = document.getElementById('sl');
+
+function applyPsiFromInput(){
+  const raw = Number(psiInput.value);
+  if (Number.isNaN(raw)) { psiHint.textContent = 'ادخل رقم صحيح'; return; }
+  const v = clamp(raw);
+  psiHint.textContent = (v!==raw)? `تم التقليم إلى ${v.toLocaleString('ar-EG')} psi` : '';
+  draw(v);
+}
+applyPsiBtn.addEventListener('click', applyPsiFromInput);
+psiInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') applyPsiFromInput(); });
+slider.addEventListener('input', ()=>{
+  psiInput.value = slider.value;
+  psiHint.textContent = '';
+});
+
+/* قيمة الامتلاء FULL_PRICE */
+const fullPriceInput   = document.getElementById('fullPriceInput');
+const applyFullPriceBtn= document.getElementById('applyFullPriceBtn');
+
+function applyFullPrice(){
+  const raw = Number(fullPriceInput.value);
+  if (Number.isNaN(raw) || raw < 0) {
+    fullPriceInput.value = Math.round(FULL_PRICE);
+    return;
+  }
+  FULL_PRICE = raw;
+  draw(+document.getElementById('sl').value);
+}
+applyFullPriceBtn.addEventListener('click', applyFullPrice);
+fullPriceInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') applyFullPrice(); });
+
+// بداية
+psiInput.value = slider.value;
+fullPriceInput.value = Math.round(FULL_PRICE);
+</script>
+</body>
+</html>
